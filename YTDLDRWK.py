@@ -5,6 +5,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 import threading
 import time
+import imageio_ffmpeg  # <-- 1. ADDED THIS IMPORT AT THE TOP
 
 # Cloud environment routing configurations
 PORT = int(os.environ.get("PORT", 8000))
@@ -52,11 +53,17 @@ class YTDLPHandler:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             absolute_cookie_path = os.path.join(base_dir, 'cookies.txt')
             
+            # Get the path to the portable ffmpeg executable file
+            portable_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()  # <-- 2. ADDED THIS VARIABLE
+            
             if format_choice == "mp3":
                 ydl_opts = {
                     'format': 'bestaudio/best',
                     'cookiefile': absolute_cookie_path,
                     'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',
+                    'socket_timeout': 10,
+                    'retries': 3,
+                    'ffmpeg_location': portable_ffmpeg,  # <-- 3. ADDED THIS LINE
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
@@ -70,29 +77,27 @@ class YTDLPHandler:
                 }
             else:  # MP4 Format Selection Block
                 max_height = resolution if resolution != 'best' else 2160
-                
-                # SMART ADAPTIVE SELECTION:
-                # 1. Tries to find a combined MP4 stream up to your resolution target.
-                # 2. Falls back to downloading separate best video (any format like WebM) + best audio tracks.
-                # 3. Grabs the absolute highest fallback option if neither matches.
                 format_selection = (
                     f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/ '
                     f'bestvideo[height<={max_height}]+bestaudio/ '
                     f'best[height<={max_height}]/ '
                     f'best'
                 )
-                
                 ydl_opts = {
                     'format': format_selection,
                     'cookiefile': absolute_cookie_path,
                     'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',
+                    'socket_timeout': 10,
+                    'retries': 3,
+                    'ffmpeg_location': portable_ffmpeg,  # <-- 4. ADDED THIS LINE
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
-                    'merge_output_format': 'mp4',  # CRITICAL: This forces ffmpeg to remux separate WebM/m4a tracks into a clean, final .mp4 file!
+                    'merge_output_format': 'mp4',
                     'quiet': True,
                     'no_warnings': True,
                 }
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if not info:
@@ -118,10 +123,12 @@ class YTDLPHandler:
                         self.status = "Error: Download failed"
                     
         except yt_dlp.utils.DownloadError as e:
+            print(f"THREAD YT-DLP ERROR: {str(e)}")  # <-- 5. ADDED FOR LOGGING
             with self._lock:
                 self.status = "Error: Download failed"
                 self.error_message = str(e)
         except Exception as e:
+            print(f"CRITICAL SYSTEM CRASH: {str(e)}")  # <-- 6. ADDED FOR LOGGING
             with self._lock:
                 self.status = f"Error: {str(e)}"
                 self.error_message = str(e)
