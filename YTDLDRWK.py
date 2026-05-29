@@ -56,14 +56,15 @@ class YTDLPHandler:
             # Get the path to the portable ffmpeg executable file
             portable_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()  # <-- 2. ADDED THIS VARIABLE
             
-            if format_choice == "mp3":
+            if format_choice_clean == "mp3":
                 ydl_opts = {
-                    'format': 'bestaudio/best',
+                    # SMART AUDIO FALLBACK: Grabs the best audio track, or falls back to the absolute best combined track if necessary
+                    'format': 'bestaudio/best', 
                     'cookiefile': absolute_cookie_path,
                     'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',
                     'socket_timeout': 10,
                     'retries': 3,
-                    'ffmpeg_location': portable_ffmpeg,  # <-- 3. ADDED THIS LINE
+                    'ffmpeg_location': portable_ffmpeg,
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
