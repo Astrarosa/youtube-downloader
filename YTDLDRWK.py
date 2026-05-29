@@ -56,6 +56,7 @@ class YTDLPHandler:
                 ydl_opts = {
                     'format': 'bestaudio/best',
                     'cookiefile': absolute_cookie_path,
+                    'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',  # <-- ADD THIS LINE
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
@@ -64,6 +65,24 @@ class YTDLPHandler:
                     }],
                     'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
+                    'quiet': True,
+                    'no_warnings': True,
+                }
+            else:  # MP4
+                max_height = resolution if resolution != 'best' else 2160
+                format_selection = (
+                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
+                    f'bestvideo[height<={max_height}]+bestaudio/'
+                    f'best[ext=mp4]/best'
+                )
+                ydl_opts = {
+                    'format': format_selection,
+                    'cookiefile': absolute_cookie_path,
+                    'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',  # <-- ADD THIS LINE
+                    'extractor_args': {'youtube': {'player_client': ['web_safari']}},
+                    'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
+                    'progress_hooks': [self.progress_hook],
+                    'merge_output_format': 'mp4',
                     'quiet': True,
                     'no_warnings': True,
                 }
