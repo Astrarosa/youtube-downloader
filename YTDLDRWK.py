@@ -71,7 +71,10 @@ class YTDLPHandler:
             else:  # MP4 Format Selection Block
                 max_height = resolution if resolution != 'best' else 2160
                 
-                # SMART FALLBACK: Look for MP4 first, but allow any format (like WebM) if it's the only one available at that quality
+                # SMART ADAPTIVE SELECTION:
+                # 1. Tries to find a combined MP4 stream up to your resolution target.
+                # 2. Falls back to downloading separate best video (any format like WebM) + best audio tracks.
+                # 3. Grabs the absolute highest fallback option if neither matches.
                 format_selection = (
                     f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/ '
                     f'bestvideo[height<={max_height}]+bestaudio/ '
@@ -86,7 +89,7 @@ class YTDLPHandler:
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
-                    'merge_output_format': 'mp4',  # This forces ffmpeg to save it as a clean .mp4 file anyway!
+                    'merge_output_format': 'mp4',  # CRITICAL: This forces ffmpeg to remux separate WebM/m4a tracks into a clean, final .mp4 file!
                     'quiet': True,
                     'no_warnings': True,
                 }
