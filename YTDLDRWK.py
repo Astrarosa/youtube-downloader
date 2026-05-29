@@ -50,6 +50,7 @@ class YTDLPHandler:
             if format_choice == "mp3":
                 ydl_opts = {
                     'format': 'bestaudio/best',
+                    'cookiefile': 'cookies.txt',
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
@@ -64,6 +65,7 @@ class YTDLPHandler:
                 format_selection = f'bestvideo[ext=mp4][height<={resolution if resolution != "best" else 2160}]+bestaudio[ext=m4a]/best[ext=mp4]'
                 ydl_opts = {
                     'format': format_selection,
+                    'cookiefile': 'cookies.txt',
                     'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
                     'merge_output_format': 'mp4',
