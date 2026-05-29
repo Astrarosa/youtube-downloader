@@ -5,7 +5,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 import threading
 import time
-import imageio_ffmpeg  # <-- 1. ADDED THIS IMPORT AT THE TOP
+import imageio_ffmpeg  # Portable FFmpeg engine
 
 # Cloud environment routing configurations
 PORT = int(os.environ.get("PORT", 8000))
@@ -54,12 +54,15 @@ class YTDLPHandler:
             absolute_cookie_path = os.path.join(base_dir, 'cookies.txt')
             
             # Get the path to the portable ffmpeg executable file
-            portable_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()  # <-- 2. ADDED THIS VARIABLE
+            portable_ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
             
+            # Clean and lower-case the input to prevent bugs skipping sections
+            format_choice_clean = str(format_choice).lower().strip()
+
             if format_choice_clean == "mp3":
                 ydl_opts = {
-                    # SMART AUDIO FALLBACK: Grabs the best audio track, or falls back to the absolute best combined track if necessary
-                    'format': 'bestaudio/best', 
+                    # Try getting pure audio, fall back to downloading full video stream to split if needed
+                    'format': 'bestaudio/bestvideo+bestaudio/best', 
                     'cookiefile': absolute_cookie_path,
                     'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',
                     'socket_timeout': 10,
@@ -79,14 +82,13 @@ class YTDLPHandler:
             else:  # MP4 Format Selection Block
                 max_height = resolution if resolution != 'best' else 2160
                 
-                # CORRECTED FALLBACK: Spaces removed from the ends of the text lines
+                # Spaces removed from ends of strings to prevent parsing crashes
                 format_selection = (
                     f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
                     f'bestvideo[height<={max_height}]+bestaudio/'
                     f'best[height<={max_height}]/'
                     f'best'
                 )
-                
                 ydl_opts = {
                     'format': format_selection,
                     'cookiefile': absolute_cookie_path,
@@ -113,7 +115,7 @@ class YTDLPHandler:
                 
                 if self.current_download:
                     filename = ydl.prepare_filename(self.current_download)
-                    if format_choice == "mp3":
+                    if format_choice_clean == "mp3":
                         filename = os.path.splitext(filename)[0] + '.mp3'
                     
                     with self._lock:
@@ -127,12 +129,12 @@ class YTDLPHandler:
                         self.status = "Error: Download failed"
                     
         except yt_dlp.utils.DownloadError as e:
-            print(f"THREAD YT-DLP ERROR: {str(e)}")  # <-- 5. ADDED FOR LOGGING
+            print(f"THREAD YT-DLP ERROR: {str(e)}")
             with self._lock:
                 self.status = "Error: Download failed"
                 self.error_message = str(e)
         except Exception as e:
-            print(f"CRITICAL SYSTEM CRASH: {str(e)}")  # <-- 6. ADDED FOR LOGGING
+            print(f"CRITICAL SYSTEM CRASH: {str(e)}")
             with self._lock:
                 self.status = f"Error: {str(e)}"
                 self.error_message = str(e)
