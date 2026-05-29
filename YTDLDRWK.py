@@ -1,13 +1,12 @@
-import os
 import yt_dlp
+import os
 import re
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-import webbrowser
 import json
 import threading
 import time
-import urllib.parse
 
+# Cloud environment routing configurations
 PORT = int(os.environ.get("PORT", 8000))
 DEFAULT_DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DEFAULT_DOWNLOAD_FOLDER, exist_ok=True)
@@ -19,10 +18,10 @@ class YTDLPHandler:
         self.status = "Ready"
         self.filename = ""
         self.error_message = ""
-        self._lock = threading.Lock()
+        self._lock = threading.Lock() # Protect states across parallel threads
         
     def reset_state(self):
-        """Resets the handler state for a completely new download tracking session."""
+        """Resets the state tracking data for a brand-new download session."""
         with self._lock:
             self.current_download = None
             self.progress = 0
@@ -31,6 +30,7 @@ class YTDLPHandler:
             self.error_message = ""
 
     def download_thread_worker(self, url, format_choice, resolution, output_folder):
+        """Runs the yt-dlp operation safely inside a background thread."""
         try:
             with self._lock:
                 self.status = "Preparing..."
@@ -44,44 +44,47 @@ class YTDLPHandler:
                     self.status = "Error: Invalid YouTube URL"
                 return
 
+            # Dynamically determine target directory location
             target_folder = output_folder.strip() if output_folder else DEFAULT_DOWNLOAD_FOLDER
             os.makedirs(target_folder, exist_ok=True)
+            
+            # Map an absolute path to the cookies file so background workers never lose it
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            absolute_cookie_path = os.path.join(base_dir, 'cookies.txt')
             
             if format_choice == "mp3":
                 ydl_opts = {
                     'format': 'bestaudio/best',
-                    'cookiefile': 'cookies.txt',
-                    # ADD THIS EXTRACTOR LINE:
-                    'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
+                    'cookiefile': absolute_cookie_path,
+                    'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
                         'preferredquality': '192',
                     }],
-                   'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
+                    'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
                     'quiet': True,
                     'no_warnings': True,
                 }
-            else:  # MP4
+            else:  # MP4 with fallback safety slashes
                 max_height = resolution if resolution != 'best' else 2160
                 format_selection = (
-                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]'
+                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
                     f'bestvideo[height<={max_height}]+bestaudio/'
                     f'best[ext=mp4]/best'
                 )
-                
                 ydl_opts = {
                     'format': format_selection,
-                    'cookiefile': 'cookies.txt',
-                    # ADD THIS EXTRACTOR LINE:
-                    'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
-                   'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
+                    'cookiefile': absolute_cookie_path,
+                    'extractor_args': {'youtube': {'player_client': ['web_safari']}},
+                    'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
                     'merge_output_format': 'mp4',
                     'quiet': True,
                     'no_warnings': True,
                 }
+            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if not info:
@@ -109,10 +112,6 @@ class YTDLPHandler:
         except yt_dlp.utils.DownloadError as e:
             with self._lock:
                 self.status = "Error: Download failed"
-                self.error_message = str(e)
-        except yt_dlp.utils.ExtractorError as e:
-            with self._lock:
-                self.status = "Error: Could not extract video info"
                 self.error_message = str(e)
         except Exception as e:
             with self._lock:
@@ -316,12 +315,10 @@ def generate_html():
         
         #reset-btn {
             background: linear-gradient(to right, #2b9348, #55a630);
-            display: none; /* Hidden by default */
+            display: none;
             margin-top: 10px;
         }
-        #reset-btn:hover {
-            box-shadow: 0 5px 15px rgba(85, 166, 48, 0.4);
-        }
+        #reset-btn:hover { box-shadow: 0 5px 15px rgba(85, 166, 48, 0.4); }
 
         .progress-container { margin: 20px 0; width: 100%; }
         progress { width: 100%; height: 20px; border-radius: 5px; border: 1px solid #333; }
@@ -332,7 +329,6 @@ def generate_html():
         .message { padding: 10px; margin: 10px 0; border-radius: 5px; text-align: center; display: none; }
         .error { background-color: #ff6b6b; color: white; }
         .success { background-color: #51cf66; color: white; }
-        @media (max-width: 600px) { .container { padding: 20px; } .radio-group { flex-direction: column; gap: 10px; } }
     </style>
 </head>
 <body>
@@ -346,7 +342,7 @@ def generate_html():
 
         <div class="form-group">
             <label for="output_folder" class="url-label">Custom Save Directory (Optional):</label>
-            <input type="text" id="output_folder" placeholder="e.g., downloads or C:/Users/Name/Music">
+            <input type="text" id="output_folder" placeholder="e.g., downloads">
         </div>
         
         <div class="form-group">
@@ -419,7 +415,7 @@ def generate_html():
                 hideMessage();
                 downloadBtn.disabled = true;
                 downloadBtn.textContent = 'Downloading...';
-                resetBtn.style.display = 'none'; // Hide if a retry occurred
+                resetBtn.style.display = 'none';
                 
                 fetch('/download', {
                     method: 'POST',
@@ -438,17 +434,15 @@ def generate_html():
                     showMessage('Error: ' + error.message, 'error');
                     downloadBtn.disabled = false;
                     downloadBtn.textContent = 'Download';
-                    resetBtn.style.display = 'block'; // Show reset button on immediate failures
+                    resetBtn.style.display = 'block';
                 });
             });
             
-            // "Download Another" Handler
             resetBtn.addEventListener('click', function() {
                 fetch('/reset')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Force clean reload of the webpage
                         window.location.reload();
                     }
                 })
@@ -471,13 +465,13 @@ def generate_html():
                         showMessage('Download completed successfully!', 'success');
                         downloadBtn.disabled = false;
                         downloadBtn.textContent = 'Download';
-                        resetBtn.style.display = 'block'; // Show the option to reload/clear
+                        resetBtn.style.display = 'block';
                     } else if (data.status.startsWith('Error')) {
                         clearInterval(statusCheckInterval);
                         showMessage(data.error || data.status, 'error');
                         downloadBtn.disabled = false;
                         downloadBtn.textContent = 'Download';
-                        resetBtn.style.display = 'block'; // Show on execution errors
+                        resetBtn.style.display = 'block';
                     }
                 })
                 .catch(error => console.error('Poller error:', error));
@@ -500,19 +494,7 @@ def generate_html():
 def start_server():
     generate_html()
     server = HTTPServer(('0.0.0.0', PORT), WebHandler)
-    # COMMENT THESE LINES OUT:
-# def open_browser():
-#     time.sleep(1.5)
-#     webbrowser.open(f"http://localhost:{PORT}")
-# threading.Thread(target=open_browser, daemon=True).start()
-    print(f"Server started at http://localhost:{PORT}")
-    
-    def open_browser():
-        time.sleep(1.5)
-        webbrowser.open(f"http://localhost:{PORT}")
-    
-    threading.Thread(target=open_browser, daemon=True).start()
-    
+    print(f"Server started at http://0.0.0.0:{PORT}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
