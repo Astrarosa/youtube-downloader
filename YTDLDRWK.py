@@ -70,11 +70,15 @@ class YTDLPHandler:
                 }
             else:  # MP4 Format Selection Block
                 max_height = resolution if resolution != 'best' else 2160
+                
+                # SMART FALLBACK: Look for MP4 first, but allow any format (like WebM) if it's the only one available at that quality
                 format_selection = (
-                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
-                    f'bestvideo[height<={max_height}]+bestaudio/'
-                    f'best[ext=mp4]/best'
+                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/ '
+                    f'bestvideo[height<={max_height}]+bestaudio/ '
+                    f'best[height<={max_height}]/ '
+                    f'best'
                 )
+                
                 ydl_opts = {
                     'format': format_selection,
                     'cookiefile': absolute_cookie_path,
@@ -82,11 +86,10 @@ class YTDLPHandler:
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
-                    'merge_output_format': 'mp4',
+                    'merge_output_format': 'mp4',  # This forces ffmpeg to save it as a clean .mp4 file anyway!
                     'quiet': True,
                     'no_warnings': True,
                 }
-            
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 if not info:
