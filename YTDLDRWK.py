@@ -51,28 +51,31 @@ class YTDLPHandler:
                 ydl_opts = {
                     'format': 'bestaudio/best',
                     'cookiefile': 'cookies.txt',
+                    # ADD THIS EXTRACTOR LINE:
+                    'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
                         'preferredquality': '192',
                     }],
-                    'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
+                    'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
                     'quiet': True,
                     'no_warnings': True,
                 }
             else:  # MP4
-               # We add a fallback rule using the "/" operator so it downgrades gracefully if your choice isn't found
                 max_height = resolution if resolution != 'best' else 2160
                 format_selection = (
-                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
+                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]'
                     f'bestvideo[height<={max_height}]+bestaudio/'
                     f'best[ext=mp4]/best'
                 )
                 
                 ydl_opts = {
                     'format': format_selection,
-                    'cookiefile': 'cookies.txt',  # Keep this if you added cookies earlier!
+                    'cookiefile': 'cookies.txt',
+                    # ADD THIS EXTRACTOR LINE:
+                    'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
                     'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
                     'merge_output_format': 'mp4',
