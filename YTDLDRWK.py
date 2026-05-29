@@ -77,19 +77,22 @@ class YTDLPHandler:
                 }
             else:  # MP4 Format Selection Block
                 max_height = resolution if resolution != 'best' else 2160
+                
+                # CORRECTED FALLBACK: Spaces removed from the ends of the text lines
                 format_selection = (
-                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/ '
-                    f'bestvideo[height<={max_height}]+bestaudio/ '
-                    f'best[height<={max_height}]/ '
+                    f'bestvideo[ext=mp4][height<={max_height}]+bestaudio[ext=m4a]/'
+                    f'bestvideo[height<={max_height}]+bestaudio/'
+                    f'best[height<={max_height}]/'
                     f'best'
                 )
+                
                 ydl_opts = {
                     'format': format_selection,
                     'cookiefile': absolute_cookie_path,
                     'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',
                     'socket_timeout': 10,
                     'retries': 3,
-                    'ffmpeg_location': portable_ffmpeg,  # <-- 4. ADDED THIS LINE
+                    'ffmpeg_location': portable_ffmpeg,
                     'extractor_args': {'youtube': {'player_client': ['web_safari']}},
                     'outtmpl': os.path.join(target_folder, '%(title)s.%(ext)s'),
                     'progress_hooks': [self.progress_hook],
