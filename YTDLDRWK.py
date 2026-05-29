@@ -62,7 +62,7 @@ class YTDLPHandler:
             if format_choice_clean == "mp3":
                 ydl_opts = {
                     # Try getting pure audio, fall back to downloading full video stream to split if needed
-                    'format': 'bestaudio/bestvideo+bestaudio/best', 
+                    'format': 'bestaudio/best',
                     'cookiefile': absolute_cookie_path,
                     'proxy': 'http://ckdscsdl:qx1kqbax8q0q@142.111.67.146:5611',
                     'socket_timeout': 10,
